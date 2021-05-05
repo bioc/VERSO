@@ -79,7 +79,7 @@ get.phylo <- function( adjacency_matrix, valid_genotypes, samples_attachments ) 
     # build VERSO phylogenetic tree
     phylogenetic_tree <- list(edge=edges,tip.label=tip.label,Nnode=Nnode,edge.length=edges_weights,node.label=nodes_list,root.edge=0)
     class(phylogenetic_tree) <- "phylo"
-    phylogenetic_tree <- keep.tip(phylogenetic_tree,tip.label)
+    phylogenetic_tree <- ape::keep.tip(phylogenetic_tree,tip.label)
 
     # return VERSO phylogenetic tree
     return(phylogenetic_tree)
@@ -87,13 +87,13 @@ get.phylo <- function( adjacency_matrix, valid_genotypes, samples_attachments ) 
 }
 
 # convert B to an adjacency matrix
-as.adj.matrix <- function( B ) {
-
+as.adj.matrix <- function( B, sorting = FALSE) {
+    
     # create the data structure where to save the adjacency matrix obtained from B
     adj_matrix <- array(0L,dim(B))
     rownames(adj_matrix) <- colnames(B)
     colnames(adj_matrix) <- colnames(B)
-
+    
     # set arcs in the adjacency matrix
     for(i in seq_len((nrow(B)-1))) {
         for(j in ((i+1):nrow(B))) {
@@ -102,10 +102,16 @@ as.adj.matrix <- function( B ) {
             }
         }
     }
-
+    
+    if(sorting == TRUE) {
+        # keeping root on the first place
+        ord <- c(1,1+order(colnames(adj_matrix)[-1]))
+        adj_matrix <- adj_matrix[ord,ord]
+    }
+    
     # return the adjacency matrix obtained from B
     return(adj_matrix)
-
+    
 }
 
 # build B from an adjacency matrix where we assume genotypes and mutations to be both ordered
@@ -134,5 +140,38 @@ as.B <- function( adj_matrix, D ) {
     
     # return B
     return(B)
+    
+}
+
+# draw B
+draw.B <- function( B, mut_label = colnames(B)[-1], last_mut_node_label =  TRUE) {
+    
+    Broot <- Node$new('r')
+    Broot$mut <- B[1,]
+    
+    nClone <- nrow(B)
+    Clones <- list(Broot)
+    
+    for(rP in 1:(nrow(B)-1)) {
+        
+        for(rC in ((rP+1):nrow(B))) {
+            
+            if(all(Clones[[rP]]$mut[1:rP]==B[rC,1:rP])&&(sum(Clones[[rP]]$mut)==(sum(B[rC,])-1))) {
+                if(last_mut_node_label) {
+                    mutName <- tail(mut_label[which(B[rC,-1]==1)], 1)
+                } else {
+                    mutName <- paste(mut_label[which(B[rC,-1]==1)],collapse="")  
+                }
+                
+                Clones[[rC]] <- Clones[[rP]]$AddChild(mutName)
+                Clones[[rC]]$mut <- B[rC,]
+                
+            }
+            
+        }
+        
+    }
+    
+    return(Broot)
     
 }
